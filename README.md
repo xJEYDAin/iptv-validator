@@ -76,5 +76,4 @@ python scripts/validate_all.py
 
 ## 注意事项
 
-- 不推送到 GitHub（等待 y 总决定后再推送）
 - 验证结果会同时更新 iptv-scraper 和 iptv-validator 的 cache
