@@ -75,6 +75,13 @@ jobs:
         env:
           FORCE_VALIDATE: ${{ inputs.force == 'true' && 'true' || 'false' }}
 
+      - name: Copy cache to iptv-scraper
+        run: |
+          mkdir -p iptv-scraper/cache
+          cp iptv-validator/cache/validation_cache.json iptv-scraper/cache/
+          echo "Copied cache to iptv-scraper"
+          cat iptv-scraper/cache/validation_cache.json | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Cache entries: {len(d)}')"
+
       - name: Push validation cache to iptv-scraper
         run: |
           cd iptv-scraper
