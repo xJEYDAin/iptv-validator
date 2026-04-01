@@ -8,7 +8,7 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime, date as date_cls
+from datetime import datetime, date
 from pathlib import Path
 
 FORCE_VALIDATE = os.getenv("FORCE_VALIDATE", "false") == "true"
@@ -64,7 +64,6 @@ def parse_m3u(content: str):
                         "tvg_logo": tvg_logo.group(1) if tvg_logo else "",
                         "group": group.group(1) if group else "",
                         "url": url,
-                        "raw_extinf": extinf
                     })
                     i += 2
                     continue
@@ -125,7 +124,7 @@ def should_validate(url: str, cache_entry: dict | None) -> bool:
     tier = cache_entry.get("tier", "global")
     try:
         last_date = datetime.fromisoformat(last_validated).date()
-        days_since = (date_cls.today() - last_date).days
+        days_since = (date.today() - last_date).days
     except (ValueError, TypeError):
         return True
 
@@ -162,19 +161,22 @@ def validate_all():
             url = ch["url"]
             total_urls += 1
 
-            # 白名单直接跳过，不重复验证
+            cache_entry = cache.get(url)
+
+            # 白名单 URL 也走 tier-based 过期机制
             if is_whitelisted(url):
-                if url not in cache:
-                    cache[url] = {
-                        "valid": True,
-                        "last_validated": date_cls.today().strftime("%Y-%m-%d"),
-                        "tier": guess_tier(url),
-                        "source": "whitelist",
-                    }
+                if not should_validate(url, cache_entry):
+                    skipped_whitelisted += 1
+                    continue
+                # 需要验证（tier过期），按白名单处理
+                cache[url] = {
+                    "valid": True,
+                    "last_validated": date.today().strftime("%Y-%m-%d"),
+                    "tier": guess_tier(url),
+                    "source": "whitelist",
+                }
                 skipped_whitelisted += 1
                 continue
-
-            cache_entry = cache.get(url)
 
             if not should_validate(url, cache_entry):
                 # 不需要验证，跳过
@@ -189,7 +191,7 @@ def validate_all():
 
             cache[url] = {
                 "valid": is_valid,
-                "last_validated": date_cls.today().strftime("%Y-%m-%d"),
+                "last_validated": date.today().strftime("%Y-%m-%d"),
                 "tier": guess_tier(url),
                 "source": ch.get("group", ""),
             }

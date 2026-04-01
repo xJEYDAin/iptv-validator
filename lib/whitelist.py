@@ -18,11 +18,10 @@ EXTENDED_WHITELIST_PATTERNS: List[Pattern] = [
     re.compile(r'^https?://([^/]+\.)*hkcable\.com\.hk/', re.IGNORECASE),
     re.compile(r'^https?://([^/]+\.)*cable-tvc\.com/', re.IGNORECASE),
     re.compile(r'^https?://hoytv\.com/', re.IGNORECASE),                     # HOY TV
-    re.compile(r'^https?://([^/]+\.)*cable-tvc\.com/', re.IGNORECASE),
 
     # HK IP ranges (static CDN)
     re.compile(r'^https?://61\.238\.\d+\.\d+/'),
-    re.compile(r'^https?://116\.199\.\d+\.\d+'),
+    re.compile(r'^https?://116\.199\.\d+\.\d+/'),
     re.compile(r'^https?://202\.181\.\d+\.\d+/'),
     re.compile(r'^https?://203\.186\.\d+\.\d+/'),
     re.compile(r'^https?://1\.32\.\d+\.\d+/'),

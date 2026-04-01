@@ -6,13 +6,11 @@ Used by all modules - no more duplicate implementations.
 """
 import logging
 import requests
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Tuple, Optional
+from typing import Tuple, Optional
 
 from lib.whitelist import is_whitelisted
 
 DEFAULT_TIMEOUT = 3
-DEFAULT_MAX_WORKERS = 50
 
 
 def validate_url(url: str, session: Optional[requests.Session] = None,
@@ -55,32 +53,6 @@ def validate_url(url: str, session: Optional[requests.Session] = None,
     return (url, False)
 
 
-def validate_batch(urls: List[str], max_workers: int = DEFAULT_MAX_WORKERS,
-                   timeout: int = DEFAULT_TIMEOUT, logger=None) -> List[Tuple[str, bool]]:
-    """Validate multiple URLs concurrently.
-
-    Returns:
-        list of (url, is_valid) tuples
-    """
-    results = []
-    session = requests.Session()
-
-    def _validate(url):
-        return validate_url(url, session=session, timeout=timeout, logger=logger)
-
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(_validate, url): url for url in urls}
-        for future in as_completed(futures):
-            results.append(future.result())
-
-    return results
-
-
 def validate_url_head_first(url: str, session=None, timeout=DEFAULT_TIMEOUT, logger=None):
     """Legacy wrapper: returns bool instead of tuple."""
     return validate_url(url, session=session, timeout=timeout, logger=logger)[1]
-
-
-def check_url(url: str, session=None):
-    """Legacy wrapper from generate_playlist.py."""
-    return validate_url(url, session=session, timeout=DEFAULT_TIMEOUT, logger=None)
