@@ -90,7 +90,7 @@ jobs:
           git config --local push.default simple
           # Set remote URL for iptv-scraper
           git remote set-url origin https://xJEYDAin:${GITHUB_TOKEN}@github.com/xJEYDAin/iptv-scraper.git
-          git add cache/validation_cache.json
+          git add -f cache/validation_cache.json
           if git diff --staged --quiet; then
             echo "No cache changes to commit"
           else
@@ -106,7 +106,7 @@ jobs:
           git config --local user.name "iptv-validator"
           git config --local user.email "validator@iptv"
           git config --local push.default simple
-          git add cache/validation_cache.json
+          git add -f cache/validation_cache.json
           if git diff --staged --quiet; then
             echo "No cache changes to commit"
           else
