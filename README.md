@@ -114,4 +114,3 @@ iptv-validator/
 ## 📝 注意事项
 
 - 验证结果会同时更新 iptv-scraper 和 iptv-validator 的 cache
-- 不推送到 GitHub（等待维护者决定后再推送）
