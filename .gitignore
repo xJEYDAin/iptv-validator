@@ -7,6 +7,6 @@ dist/
 build/
 *.egg
 
-# Cache
-cache/
+# Cache - ignore all files but track validation_cache.json
+cache/*
 !cache/validation_cache.json
