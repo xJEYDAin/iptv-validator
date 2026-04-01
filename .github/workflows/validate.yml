@@ -1,0 +1,102 @@
+name: Daily IPTV Validation
+
+on:
+  schedule:
+    # 每天凌晨 3:00 (UTC+8) 验证
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '强制验证所有 URL（忽略缓存）'
+        required: false
+        default: 'false'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout iptv-scraper
+        uses: actions/checkout@v4
+        with:
+          repository: xJEYDAin/iptv-scraper
+          path: iptv-scraper
+          fetch-depth: 1
+
+      - name: Checkout iptv-validator
+        uses: actions/checkout@v4
+        with:
+          repository: xJEYDAin/iptv-validator
+          path: iptv-validator
+          fetch-depth: 1
+
+      - name: Sync filtered/ from iptv-scraper
+        run: |
+          rm -rf iptv-validator/filtered/*
+          cp -r iptv-scraper/filtered/* iptv-validator/filtered/
+          echo "Synced $(ls iptv-validator/filtered/*.m3u* 2>/dev/null | wc -l) filtered files"
+
+      - name: Commit filtered changes to iptv-validator
+        run: |
+          cd iptv-validator
+          git config --local user.name "iptv-validator"
+          git config --local user.email "validator@iptv"
+          git add filtered/
+          if git diff --staged --quiet; then
+            echo "No filtered changes to commit"
+          else
+            git commit -m "Sync filtered playlists: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            git push
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd iptv-validator
+          pip install -q -r requirements.txt
+
+      - name: Run validation
+        run: |
+          cd iptv-validator
+          python scripts/validate_all.py
+        env:
+          FORCE_VALIDATE: ${{ inputs.force || 'false' }}
+
+      - name: Push validation cache to iptv-scraper
+        run: |
+          cd iptv-scraper
+          git config --local user.name "iptv-validator"
+          git config --local user.email "validator@iptv"
+          git config --local push.default simple
+          # Set remote URL for iptv-scraper
+          git remote set-url origin https://xJEYDAin:${GITHUB_TOKEN}@github.com/xJEYDAin/iptv-scraper.git
+
+          git add cache/validation_cache.json
+          if git diff --staged --quiet; then
+            echo "No cache changes to commit"
+          else
+            git commit -m "Update validation cache: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            git push
+          fi
+
+      - name: Push validation cache to iptv-validator
+        run: |
+          cd iptv-validator
+          git config --local user.name "iptv-validator"
+          git config --local user.email "validator@iptv"
+          git config --local push.default simple
+
+          git add cache/validation_cache.json
+          if git diff --staged --quiet; then
+            echo "No cache changes to commit"
+          else
+            git commit -m "Update validation cache: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            git push
+          fi
