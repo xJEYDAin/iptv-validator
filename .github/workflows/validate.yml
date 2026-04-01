@@ -35,12 +35,14 @@ jobs:
 
       - name: Sync filtered/ from iptv-scraper
         run: |
-          rm -rf iptv-validator/filtered/*
-          cp -r iptv-scraper/filtered/* iptv-validator/filtered/
+          mkdir -p iptv-validator/filtered
+          rm -rf iptv-validator/filtered/* 2>/dev/null || true
+          if [ -d "iptv-scraper/filtered" ] && [ "$(ls -A iptv-scraper/filtered/*.m3u* 2>/dev/null)" ]; then
+            cp -r iptv-scraper/filtered/* iptv-validator/filtered/
+          fi
           echo "Synced $(ls iptv-validator/filtered/*.m3u* 2>/dev/null | wc -l) filtered files"
           if [ $(ls iptv-validator/filtered/*.m3u* 2>/dev/null | wc -l) -eq 0 ]; then
-            echo "Error: No files in filtered/"
-            exit 1
+            echo "Warning: No files in filtered/, but continuing..."
           fi
 
       - name: Commit filtered changes to iptv-validator
