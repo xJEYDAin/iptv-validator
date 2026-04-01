@@ -26,28 +26,20 @@ jobs:
           path: iptv-scraper
           fetch-depth: 1
 
-      - name: Checkout iptv-validator
-        uses: actions/checkout@v4
-        with:
-          repository: xJEYDAin/iptv-validator
-          path: iptv-validator
-          fetch-depth: 1
-
       - name: Sync filtered/ from iptv-scraper
         run: |
-          mkdir -p iptv-validator/filtered
-          rm -rf iptv-validator/filtered/* 2>/dev/null || true
+          mkdir -p filtered
+          rm -rf filtered/* 2>/dev/null || true
           if [ -d "iptv-scraper/filtered" ] && [ "$(ls -A iptv-scraper/filtered/*.m3u* 2>/dev/null)" ]; then
-            cp -r iptv-scraper/filtered/* iptv-validator/filtered/
+            cp -r iptv-scraper/filtered/* filtered/
           fi
-          echo "Synced $(ls iptv-validator/filtered/*.m3u* 2>/dev/null | wc -l) filtered files"
-          if [ $(ls iptv-validator/filtered/*.m3u* 2>/dev/null | wc -l) -eq 0 ]; then
+          echo "Synced $(ls filtered/*.m3u* 2>/dev/null | wc -l) filtered files"
+          if [ $(ls filtered/*.m3u* 2>/dev/null | wc -l) -eq 0 ]; then
             echo "Warning: No files in filtered/, but continuing..."
           fi
 
-      - name: Commit filtered changes to iptv-validator
+      - name: Commit filtered changes
         run: |
-          cd iptv-validator
           git config --local user.name "iptv-validator"
           git config --local user.email "validator@iptv"
           git add filtered/
@@ -65,12 +57,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd iptv-validator
           pip install -q -r requirements.txt
 
       - name: Run validation
         run: |
-          cd iptv-validator
           python scripts/validate_all.py
         env:
           FORCE_VALIDATE: ${{ inputs.force == 'true' && 'true' || 'false' }}
@@ -78,7 +68,7 @@ jobs:
       - name: Copy cache to iptv-scraper
         run: |
           mkdir -p iptv-scraper/cache
-          cp iptv-validator/cache/validation_cache.json iptv-scraper/cache/
+          cp cache/validation_cache.json iptv-scraper/cache/
           echo "Copied cache to iptv-scraper"
           cat iptv-scraper/cache/validation_cache.json | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Cache entries: {len(d)}')"
 
@@ -100,9 +90,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push validation cache to iptv-validator
+      - name: Push validation cache
         run: |
-          cd iptv-validator
           git config --local user.name "iptv-validator"
           git config --local user.email "validator@iptv"
           git config --local push.default simple
