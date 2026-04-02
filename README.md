@@ -102,6 +102,46 @@ iptv-validator/
 4. Push 验证结果回 iptv-scraper
 
 ---
+---
+
+## 🏗️ 架构说明
+
+本项目采用 **iptv-validator + iptv-scraper** 分离架构：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ iptv-scraper (每天 03:00 AM)                              │
+│                                                              │
+│ 1. 从 iptv-validator pull 验证缓存                         │
+│ 2. 运行 scraper（SKIP_VALIDATION=1，使用缓存结果）       │
+│ 3. Push output/ + filtered/ → iptv-scraper                 │
+└─────────────────────────────────────────────────────────────┘
+                              ↓ filtered/
+┌─────────────────────────────────────────────────────────────┐
+│ iptv-validator (每天 03:30 AM)                             │
+│                                                              │
+│ 1. 从 iptv-scraper pull filtered 文件                       │
+│ 2. 并发验证 URL（100 workers）                             │
+│ 3. Push cache → iptv-validator                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 权限设计
+
+| 项目 | 权限 | 说明 |
+|------|------|------|
+| iptv-scraper | 推送到 iptv-scraper | 只推自己的仓库 |
+| iptv-validator | 推送到 iptv-validator | 只推自己的仓库 |
+| 互相 pull | read-only | 通过 GitHub Actions checkout 获取对方文件 |
+
+### 验证策略
+
+| 策略 | 说明 |
+|------|------|
+| ⚡ **并发验证** | 100 workers 并发验证，~24 分钟处理 48k URL |
+| 🛡️ **CDN 白名单** | 已知可靠 CDN 跳过验证，直接标记有效 |
+| 📊 **Tier 调度** | HK: 1天 / China: 7天 / Global: 30天 |
+
 
 ## 🔧 验证策略
 
