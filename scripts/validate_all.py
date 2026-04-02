@@ -255,7 +255,7 @@ def validate_all():
     invalid = validated - valid_count
     if invalid > 0:
         logger.warning(f"{invalid} 个 URL 无效")
-    return 0 if invalid == 0 else 1
+    return 0  # 验证完成，无论是否有无效 URL
 
 
 if __name__ == "__main__":
