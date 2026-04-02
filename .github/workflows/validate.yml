@@ -16,10 +16,14 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
 
     steps:
-      - name: Checkout iptv-scraper
+      - name: Checkout iptv-validator
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Checkout iptv-scraper (read-only)
         uses: actions/checkout@v4
         with:
           repository: xJEYDAin/iptv-scraper
@@ -56,45 +60,17 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: |
-          pip install -q -r requirements.txt
+        run: pip install -q -r requirements.txt
 
       - name: Run validation
-        run: |
-          python scripts/validate_all.py
+        run: python scripts/validate_all.py
         env:
           FORCE_VALIDATE: ${{ inputs.force == 'true' && 'true' || 'false' }}
-
-      - name: Copy cache to iptv-scraper
-        run: |
-          mkdir -p iptv-scraper/cache
-          cp cache/validation_cache.json iptv-scraper/cache/
-          echo "Copied cache to iptv-scraper"
-          cat iptv-scraper/cache/validation_cache.json | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Cache entries: {len(d)}')"
-
-      - name: Push validation cache to iptv-scraper
-        run: |
-          cd iptv-scraper
-          git config --local user.name "iptv-validator"
-          git config --local user.email "validator@iptv"
-          git config --local push.default simple
-          # Set remote URL for iptv-scraper
-          git remote set-url origin https://xJEYDAin:${GITHUB_TOKEN}@github.com/xJEYDAin/iptv-scraper.git
-          git add -f cache/validation_cache.json
-          if git diff --staged --quiet; then
-            echo "No cache changes to commit"
-          else
-            git commit -m "Update validation cache: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-            git push
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push validation cache
         run: |
           git config --local user.name "iptv-validator"
           git config --local user.email "validator@iptv"
-          git config --local push.default simple
           git add -f cache/validation_cache.json
           if git diff --staged --quiet; then
             echo "No cache changes to commit"
