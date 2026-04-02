@@ -2,7 +2,7 @@ name: Daily IPTV Validation
 
 on:
   schedule:
-    # 每天凌晨3:30 (UTC+8) 验证 - 晚于 iptv-scraper 30分钟
+    # 每天凌晨3:30 (UTC+8) - 晚于 iptv-scraper 30分钟
     - cron: '30 3 * * *'
   workflow_dispatch:
     inputs:
@@ -23,35 +23,22 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Checkout iptv-scraper (read-only, to get filtered files)
+      - name: Checkout iptv-scraper (read-only, 获取 filtered)
         uses: actions/checkout@v4
         with:
           repository: xJEYDAin/iptv-scraper
           path: iptv-scraper
           fetch-depth: 1
 
-      - name: Sync filtered/ from iptv-scraper
+      - name: Copy filtered from iptv-scraper (本地使用，不 commit)
         run: |
           mkdir -p filtered
           rm -rf filtered/* 2>/dev/null || true
           if [ "$(ls -A iptv-scraper/filtered/*.m3u* 2>/dev/null)" ]; then
             cp iptv-scraper/filtered/*.m3u* filtered/
-          fi
-          echo "Synced $(ls filtered/*.m3u* 2>/dev/null | wc -l) filtered files"
-          if [ $(ls filtered/*.m3u* 2>/dev/null | wc -l) -eq 0 ]; then
-            echo "Warning: No files in filtered/, but continuing..."
-          fi
-
-      - name: Commit filtered changes
-        run: |
-          git config --local user.name "iptv-validator"
-          git config --local user.email "validator@iptv"
-          git add filtered/
-          if git diff --staged --quiet; then
-            echo "No filtered changes to commit"
+            echo "✓ 复制 $(ls filtered/*.m3u* 2>/dev/null | wc -l) 个 filtered 文件"
           else
-            git commit -m "Sync filtered playlists: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-            git push
+            echo "⚠ iptv-scraper 暂无 filtered 文件"
           fi
 
       - name: Set up Python
@@ -67,14 +54,13 @@ jobs:
         env:
           FORCE_VALIDATE: ${{ inputs.force == 'true' && 'true' || 'false' }}
 
-      - name: Push validation cache
+      - name: Push validation cache to iptv-validator
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --local user.name "iptv-validator"
           git config --local user.email "validator@iptv"
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/xJEYDAin/iptv-validator.git"
           git add -f cache/validation_cache.json
-          if git diff --staged --quiet; then
-            echo "No cache changes to commit"
-          else
-            git commit -m "Update validation cache: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-            git push
-          fi
+          git commit -m "Update validation cache: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          git push origin main
