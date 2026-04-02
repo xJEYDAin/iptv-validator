@@ -1,156 +1,50 @@
 # iptv-validator
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)
-
 独立 IPTV URL 可用性验证服务，与 [iptv-scraper](https://github.com/xJEYDAin/iptv-scraper) 配合使用。
 
 ---
 
-## 🎯 项目目标
+## 🎯 功能
 
-- 提供**独立的 IPTV URL 验证服务**，不依赖 iptv-scraper 的运行时环境
-- 按 **Tier 级别调度验证频率**，重要频道高频验证，普通频道低频验证
-- 验证结果自动 **Push 回 iptv-scraper**，更新其缓存
+- **独立验证**：不依赖 iptv-scraper 运行时环境
+- **并发验证**：100 workers，约 24 分钟处理 48k URL
+- **Tier 调度**：HK: 1天 / China: 7天 / Global: 30天
+- **白名单加速**：已知 CDN 跳过验证
 
 ---
 
-## ⚙️ 工作原理
+## 📊 验证结果
+
+| 指标 | 数值 |
+|------|------|
+| 总 URL | ~52,680 |
+| 白名单跳过 | ~3,980 |
+| 需验证 | ~48,700 |
+| 并发数 | 100 workers |
+
+---
+
+## 🏗️ 架构
 
 ```
-1. 从 iptv-scraper 克隆 filtered/ 目录
-2. 遍历所有 m3u 文件中的 URL，按 tier 调度验证
-3. 验证完成后，将结果 Push 回 iptv-scraper
+iptv-scraper (03:00) → pull cache → run → push output/filtered
+iptv-validator (03:30) → pull filtered → validate → push cache
 ```
-
-### Tier 调度规则
-
-| Tier | 验证频率 | 适用场景 |
-|------|----------|----------|
-| `hk_tw_mo` | **1 天** | 港澳台主要频道（TVB / ViuTV / RTHK / now TV 等） |
-| `china` | **7 天** | 中国大陆频道（CCTV / 腾讯 / 百度等） |
-| `global` | **30 天** | 全球其他频道 |
 
 ---
 
 ## 🚀 快速开始
 
 ```bash
-git clone https://github.com/xJEYDAin/iptv-validator.git
-cd iptv-validator
-pip install -r requirements.txt
+# 运行验证
 python scripts/validate_all.py
-```
 
-### 环境变量
-
-| 变量 | 说明 |
-|------|------|
-| `FORCE_VALIDATE` | 设为 `1` 强制全量验证，忽略缓存和 tier 调度 |
-
-```bash
-# 强制全量验证（忽略缓存）
+# 强制全量验证
 FORCE_VALIDATE=1 python scripts/validate_all.py
 ```
 
 ---
 
-## 📁 项目结构
+## 📄 许可证
 
-```
-iptv-validator/
-├── .github/workflows/
-│   └── validate.yml          # GitHub Actions 验证工作流
-├── scripts/
-│   └── validate_all.py       # 主验证脚本
-├── lib/
-│   ├── __init__.py
-│   ├── whitelist.py          # CDN 白名单（已知可靠来源跳过验证）
-│   └── validators.py         # URL 验证逻辑（HEAD + GET 双策略）
-├── cache/
-│   └── validation_cache.json  # 验证结果缓存
-├── filtered/                   # 克隆自 iptv-scraper 的 m3u 文件
-├── README.md
-└── requirements.txt
-```
-
----
-
-## 💾 缓存格式
-
-```json
-{
-  "url": {
-    "valid": true,
-    "last_validated": "2026-04-01",
-    "tier": "hk_tw_mo"
-  }
-}
-```
-
----
-
-## 🔄 GitHub Actions
-
-- **自动运行**：每天凌晨 **3:00（UTC+8）** 执行验证
-- **手动触发**：支持 `workflow_dispatch`，可随时手动运行
-
-工作流步骤：
-1. 克隆 iptv-scraper 和 iptv-validator
-2. 同步 filtered/ 目录
-3. 执行验证
-4. Push 验证结果回 iptv-scraper
-
----
----
-
-## 🏗️ 架构说明
-
-本项目采用 **iptv-validator + iptv-scraper** 分离架构：
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ iptv-scraper (每天 03:00 AM)                              │
-│                                                              │
-│ 1. 从 iptv-validator pull 验证缓存                         │
-│ 2. 运行 scraper（SKIP_VALIDATION=1，使用缓存结果）       │
-│ 3. Push output/ + filtered/ → iptv-scraper                 │
-└─────────────────────────────────────────────────────────────┘
-                              ↓ filtered/
-┌─────────────────────────────────────────────────────────────┐
-│ iptv-validator (每天 03:30 AM)                             │
-│                                                              │
-│ 1. 从 iptv-scraper pull filtered 文件                       │
-│ 2. 并发验证 URL（100 workers）                             │
-│ 3. Push cache → iptv-validator                              │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 权限设计
-
-| 项目 | 权限 | 说明 |
-|------|------|------|
-| iptv-scraper | 推送到 iptv-scraper | 只推自己的仓库 |
-| iptv-validator | 推送到 iptv-validator | 只推自己的仓库 |
-| 互相 pull | read-only | 通过 GitHub Actions checkout 获取对方文件 |
-
-### 验证策略
-
-| 策略 | 说明 |
-|------|------|
-| ⚡ **并发验证** | 100 workers 并发验证，~24 分钟处理 48k URL |
-| 🛡️ **CDN 白名单** | 已知可靠 CDN 跳过验证，直接标记有效 |
-| 📊 **Tier 调度** | HK: 1天 / China: 7天 / Global: 30天 |
-
-
-## 🔧 验证策略
-
-- **白名单加速**：已知可靠的 CDN / 官方源直接跳过验证
-- **HEAD + GET 双策略**：先用 `HEAD` 请求快速探测，失败再 Fallback 到 `GET`
-- **独立运行**：不依赖 iptv-scraper 的运行时环境，结果定期同步回源仓库
-
----
-
-## 📝 注意事项
-
-- 验证结果会同时更新 iptv-scraper 和 iptv-validator 的 cache
+MIT License
