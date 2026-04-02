@@ -2,8 +2,8 @@ name: Daily IPTV Validation
 
 on:
   schedule:
-    # 每天凌晨 3:00 (UTC+8) 验证
-    - cron: '0 3 * * *'
+    # 每天凌晨3:30 (UTC+8) 验证 - 晚于 iptv-scraper 30分钟
+    - cron: '30 3 * * *'
   workflow_dispatch:
     inputs:
       force:
@@ -23,7 +23,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Checkout iptv-scraper (read-only)
+      - name: Checkout iptv-scraper (read-only, to get filtered files)
         uses: actions/checkout@v4
         with:
           repository: xJEYDAin/iptv-scraper
@@ -34,8 +34,8 @@ jobs:
         run: |
           mkdir -p filtered
           rm -rf filtered/* 2>/dev/null || true
-          if [ -d "iptv-scraper/filtered" ] && [ "$(ls -A iptv-scraper/filtered/*.m3u* 2>/dev/null)" ]; then
-            cp -r iptv-scraper/filtered/* filtered/
+          if [ "$(ls -A iptv-scraper/filtered/*.m3u* 2>/dev/null)" ]; then
+            cp iptv-scraper/filtered/*.m3u* filtered/
           fi
           echo "Synced $(ls filtered/*.m3u* 2>/dev/null | wc -l) filtered files"
           if [ $(ls filtered/*.m3u* 2>/dev/null | wc -l) -eq 0 ]; then
