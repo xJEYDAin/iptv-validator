@@ -31,8 +31,8 @@ def validate_url(url: str, session: Optional[requests.Session] = None,
 
     headers = {"User-Agent": "Mozilla/5.0 (compatible; IPTV-Scraper/1.0)"}
     
-    # 不接受的内容类型（通常是错误页面或空响应）
-    INVALID_CONTENT_TYPES = ["text/html", "text/plain", "application/json", "null", ""]
+    # 不接受的内容类型（只拒绝明确错误的内容）
+    INVALID_CONTENT_TYPES = ["text/html", "null"]
 
     # 2. Try HEAD first (fast)
     try:
