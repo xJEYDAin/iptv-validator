@@ -2,7 +2,6 @@
 """Unified URL validation for IPTV streams.
 
 Unified implementation: HEAD first + GET fallback + CDN whitelist.
-Used by all modules - no more duplicate implementations.
 """
 import logging
 import requests
@@ -12,14 +11,40 @@ from lib.whitelist import is_whitelisted
 
 DEFAULT_TIMEOUT = 3
 
+# 代理域名黑名单 - 直接拒绝这些域名
+PROXY_BLACKLIST_DOMAINS = [
+    "jdshipin.com",
+    "jiduo.me",
+    "v2h.jdshipin.com",
+    "php.jdshipin.com",
+    "kkk.jjjj.jiduo.me",
+    "jjjj.jiduo.me",
+]
+
+
+def is_proxy_domain(url: str) -> bool:
+    """检测是否为代理/播放器页面 URL"""
+    from urllib.parse import urlparse
+    try:
+        domain = urlparse(url).netloc.lower()
+        return any(proxy in domain for proxy in PROXY_BLACKLIST_DOMAINS)
+    except:
+        return False
+
 
 def validate_url(url: str, session: Optional[requests.Session] = None,
                  timeout: int = DEFAULT_TIMEOUT, logger=None) -> Tuple[str, bool]:
-    """Validate stream URL: whitelist → HEAD first → GET fallback.
+    """Validate stream URL: proxy blacklist → whitelist → HEAD first → GET fallback.
 
     Returns:
         tuple: (url, is_valid)
     """
+    # 0. 代理域名直接拒绝
+    if is_proxy_domain(url):
+        if logger:
+            logger.debug(f"  [Proxy Blocked] {url}")
+        return (url, False)
+
     # 1. CDN whitelist - skip validation
     if is_whitelisted(url):
         if logger:
@@ -31,14 +56,13 @@ def validate_url(url: str, session: Optional[requests.Session] = None,
 
     headers = {"User-Agent": "Mozilla/5.0 (compatible; IPTV-Scraper/1.0)"}
     
-    # 不接受的内容类型（只拒绝明确错误的内容）
-    INVALID_CONTENT_TYPES = ["text/html", "null"]
+    # 不接受的内容类型
+    INVALID_CONTENT_TYPES = ["text/html", "null", "application/xml", "text/plain"]
 
     # 2. Try HEAD first (fast)
     try:
         resp = session.head(url, timeout=timeout, allow_redirects=True, headers=headers)
         if resp.status_code in (200, 206, 301, 302, 303, 307, 308):
-            # 检查 Content-Type，拒绝 HTML 等错误页面和空响应
             content_type = resp.headers.get("Content-Type", "").lower().strip()
             if any(invalid in content_type for invalid in INVALID_CONTENT_TYPES):
                 if logger:
@@ -54,12 +78,18 @@ def validate_url(url: str, session: Optional[requests.Session] = None,
         resp = session.get(url, timeout=timeout, allow_redirects=True,
                           headers=headers, stream=True)
         if resp.status_code in (200, 206, 301, 302, 303, 307, 308):
-            # 检查 Content-Type，拒绝 HTML 等错误页面和空响应
             content_type = resp.headers.get("Content-Type", "").lower().strip()
             if any(invalid in content_type for invalid in INVALID_CONTENT_TYPES):
                 if logger:
                     logger.debug(f"  [Invalid Content-Type] '{content_type}' for {url}")
                 return (url, False)
+            # 深度检测：检查响应内容是否像视频流
+            try:
+                content = resp.text[:500].lower()
+                if '#extm3u' in content or '.ts' in content or 'manifest' in content:
+                    return (url, True)
+            except:
+                pass
             return (url, True)
     except Exception as e:
         if logger:
