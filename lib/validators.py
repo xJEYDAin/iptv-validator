@@ -31,18 +31,18 @@ def validate_url(url: str, session: Optional[requests.Session] = None,
 
     headers = {"User-Agent": "Mozilla/5.0 (compatible; IPTV-Scraper/1.0)"}
     
-    # 不接受的内容类型（通常是错误页面）
-    INVALID_CONTENT_TYPES = ["text/html", "text/plain", "application/json"]
+    # 不接受的内容类型（通常是错误页面或空响应）
+    INVALID_CONTENT_TYPES = ["text/html", "text/plain", "application/json", "null", ""]
 
     # 2. Try HEAD first (fast)
     try:
         resp = session.head(url, timeout=timeout, allow_redirects=True, headers=headers)
         if resp.status_code in (200, 206, 301, 302, 303, 307, 308):
-            # 检查 Content-Type，拒绝 HTML 等错误页面
-            content_type = resp.headers.get("Content-Type", "").lower()
+            # 检查 Content-Type，拒绝 HTML 等错误页面和空响应
+            content_type = resp.headers.get("Content-Type", "").lower().strip()
             if any(invalid in content_type for invalid in INVALID_CONTENT_TYPES):
                 if logger:
-                    logger.debug(f"  [Invalid Content-Type] {content_type} for {url}")
+                    logger.debug(f"  [Invalid Content-Type] '{content_type}' for {url}")
                 return (url, False)
             return (url, True)
     except Exception as e:
@@ -54,11 +54,11 @@ def validate_url(url: str, session: Optional[requests.Session] = None,
         resp = session.get(url, timeout=timeout, allow_redirects=True,
                           headers=headers, stream=True)
         if resp.status_code in (200, 206, 301, 302, 303, 307, 308):
-            # 检查 Content-Type，拒绝 HTML 等错误页面
-            content_type = resp.headers.get("Content-Type", "").lower()
+            # 检查 Content-Type，拒绝 HTML 等错误页面和空响应
+            content_type = resp.headers.get("Content-Type", "").lower().strip()
             if any(invalid in content_type for invalid in INVALID_CONTENT_TYPES):
                 if logger:
-                    logger.debug(f"  [Invalid Content-Type] {content_type} for {url}")
+                    logger.debug(f"  [Invalid Content-Type] '{content_type}' for {url}")
                 return (url, False)
             return (url, True)
     except Exception as e:
