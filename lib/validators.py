@@ -83,13 +83,14 @@ def validate_url(url: str, session: Optional[requests.Session] = None,
                 if logger:
                     logger.debug(f"  [Invalid Content-Type] '{content_type}' for {url}")
                 return (url, False)
-            # 深度检测：检查响应内容是否像视频流
+            # 深度检测：检查响应内容是否像视频流（使用 raw.read 而非 resp.text 避免 stream=True 时内存爆炸）
             try:
-                content = resp.text[:500].lower()
+                content = resp.raw.read(500).decode('utf-8', errors='ignore').lower()
                 if '#extm3u' in content or '.ts' in content or 'manifest' in content:
                     return (url, True)
-            except:
-                pass
+            except Exception as e:
+                if logger:
+                    logger.debug(f"  Deep check failed: {e}")
             return (url, True)
     except Exception as e:
         if logger:
